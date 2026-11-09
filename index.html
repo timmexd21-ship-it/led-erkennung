@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e0f12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>LED Erkennung</title>
+<style>
+  :root {
+    --bg: #0e0f12; --card: #1a1c21; --card2: #24272e; --line: #30343c;
+    --text: #f2f3f5; --muted: #9aa0aa; --accent: #ff9f1a; --ok: #3ddc84; --warn: #ffd23f; --bad: #ff5c5c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px); }
+  #app { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+  header { display: flex; align-items: center; gap: 8px; padding: 14px 0 10px; position: sticky; top: 0;
+    background: var(--bg); z-index: 5; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button { font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 14px; cursor: pointer; }
+  button:disabled { opacity: .45; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
+  button.danger { color: var(--bad); }
+  button.icon { padding: 8px 12px; font-size: 18px; }
+  button.block { display: block; width: 100%; margin-top: 10px; }
+  .card { background: var(--card); border-radius: 16px; padding: 14px; margin: 12px 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 4px 6px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--card);
+    border-radius: 14px; margin: 8px 0; cursor: pointer; }
+  .row .grow { flex: 1; min-width: 0; }
+  .row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); flex: none; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    background: rgba(255,159,26,.2); color: var(--accent); }
+  .badge.unknown { background: rgba(160,160,160,.2); color: var(--muted); }
+  .badge.exp { background: rgba(255,210,63,.2); color: var(--warn); }
+  .state { font-size: 13px; }
+  .state.connected { color: var(--ok); } .state.busy { color: var(--warn); } .state.off { color: var(--muted); }
+  .banner { background: rgba(255,210,63,.12); border: 1px solid rgba(255,210,63,.4); color: var(--warn);
+    border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
+  .center { text-align: center; }
+  .power { width: 120px; height: 120px; border-radius: 50%; margin: 6px auto 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-weight: 700; font-size: 18px; border: 1px solid rgba(255,255,255,.2); }
+  .power svg { width: 40px; height: 40px; margin-bottom: 4px; }
+  .wheel { position: relative; width: min(100%, 320px); aspect-ratio: 1; margin: 22px auto; border-radius: 50%;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    background: radial-gradient(circle closest-side, #fff, rgba(255,255,255,0)),
+      conic-gradient(from 90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.15); }
+  .thumb { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+    border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.6); pointer-events: none; }
+  .hexrow { display: flex; align-items: center; gap: 10px; }
+  .swatch { width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); flex: none; }
+  input[type=text] { font: 18px ui-monospace, Menlo, Consolas, monospace; color: var(--text); background: var(--card2);
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; width: 100%; min-width: 0; }
+  input.invalid { border-color: var(--bad); }
+  select { font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 10px; width: 100%; }
+  .slider { margin: 18px 0; }
+  .slider .head { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 6px; }
+  .slider .head span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+  input[type=range] { width: 100%; height: 34px; accent-color: var(--accent); }
+  .favs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .fav { height: 54px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: rgba(0,0,0,.7); border: 1px dashed var(--line);
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+  .fav.set { border-style: solid; border-color: rgba(255,255,255,.2); }
+  .fav.empty { color: var(--muted); font-size: 20px; font-weight: 400; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: flex-end;
+    justify-content: center; z-index: 20; }
+  .sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 20px 20px 0 0;
+    padding: 20px 18px calc(env(safe-area-inset-bottom) + 24px); text-align: center; }
+  .sheet h3 { margin: 6px 0; font-size: 22px; }
+  .two { display: flex; gap: 12px; margin-top: 14px; } .two button { flex: 1; padding: 14px; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
+  .char { padding: 8px 10px; border-radius: 10px; margin: 4px 0; background: var(--card2); cursor: pointer; }
+  .char.sel { outline: 2px solid var(--accent); }
+  .log { max-height: 300px; overflow: auto; background: #000; border-radius: 10px; padding: 8px; white-space: pre-wrap; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; }
+  .kv span:last-child { text-align: right; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+
+/* ============================== Hilfsfunktionen ============================== */
+
+const VERSION = '1.0 (Web)';
+const u16 = (hex) => `0000${hex.toLowerCase()}-0000-1000-8000-00805f9b34fb`;
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+const pctToByte = (p, max = 255, min = 0) => clamp(Math.round(min + clamp(p, 0, 100) / 100 * (max - min)), 0, 255);
+const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+const shortUuid = (uuid) => /^0000[0-9a-f]{4}-0000-1000-8000-00805f9b34fb$/.test(uuid) ? uuid.slice(4, 8).toUpperCase() : uuid;
+
+/** "7E 00 04", "7e0004" oder "0x7E,0x00" -> Array von Bytes, sonst null. */
+function parseHexBytes(text) {
+  const cleaned = text.replace(/0x/gi, '').replace(/[^0-9a-f]/gi, '');
+  if (!cleaned || cleaned.length % 2) return null;
+  const out = [];
+  for (let i = 0; i < cleaned.length; i += 2) out.push(parseInt(cleaned.slice(i, i + 2), 16));
+  return out;
+}
+
+function hsvToRgb(h, s, v = 1) {
+  h = (h - Math.floor(h)) * 6;
+  const i = Math.floor(h) % 6, f = h - Math.floor(h);
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const [r, g, b] = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i];
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
+function rgbToHueSat({ r, g, b }) {
+  const rd = r / 255, gd = g / 255, bd = b / 255;
+  const max = Math.max(rd, gd, bd), min = Math.min(rd, gd, bd), d = max - min;
+  if (max <= 0 || d <= 0) return { h: 0, s: 0 };
+  let h = max === rd ? (gd - bd) / d : max === gd ? 2 + (bd - rd) / d : 4 + (rd - gd) / d;
+  h /= 6;
+  if (h < 0) h += 1;
+  return { h, s: d / max };
+}
+
+const rgbHex = ({ r, g, b }) => [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+const rgbCss = (c) => `#${rgbHex(c)}`;
+
+function parseHexColor(text) {
+  let s = text.trim().replace(/^#/, '');
+  if (s.length === 3) s = s.split('').map((c) => c + c).join('');
+  if (!/^[0-9a-f]{6}$/i.test(s)) return null;
+  const n = parseInt(s, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/** Software-Helligkeit: Kanäle skalieren, aktive Kanäle bleiben mindestens 1. */
+function scaleRgb(c, percent) {
+  const p = clamp(percent, 0, 100) / 100;
+  const s = (v) => (v > 0 && p > 0 ? Math.max(1, Math.round(v * p)) : 0);
+  return { r: s(c.r), g: s(c.g), b: s(c.b) };
+}
+
+/* ============================== Profile ============================== */
+/* Jedes Profil ist ein Objekt. Neues Protokoll = neues Objekt in PROFILES.
+   Encoder liefern ein Array von Paketen (Byte-Arrays); [] = Befehl gibt es nicht. */
+
+const BASE = {
+  notify: [], nativeBrightness: false, white: false, speed: false, effects: [], experimental: false, keepAlive: null,
+  handshake() { return []; },
+  staticMode() { return []; },
+  brightness() { return []; },
+  whiteCmd() { return []; },
+  effect() { return []; },
+  effectSpeed() { return []; },
+};
+
+const TRIONES_EFFECTS = [
+  [0x25, 'Sieben Farben überblenden'], [0x26, 'Rot pulsieren'], [0x27, 'Grün pulsieren'], [0x28, 'Blau pulsieren'],
+  [0x29, 'Gelb pulsieren'], [0x2a, 'Cyan pulsieren'], [0x2b, 'Violett pulsieren'], [0x2c, 'Weiß pulsieren'],
+  [0x2d, 'Rot/Grün überblenden'], [0x2e, 'Rot/Blau überblenden'], [0x2f, 'Grün/Blau überblenden'],
+  [0x30, 'Sieben Farben blitzen'], [0x31, 'Rot blitzen'], [0x32, 'Grün blitzen'], [0x33, 'Blau blitzen'],
+  [0x34, 'Gelb blitzen'], [0x35, 'Cyan blitzen'], [0x36, 'Violett blitzen'], [0x37, 'Weiß blitzen'],
+  [0x38, 'Sieben Farben springen'],
+].map(([id, name]) => ({ id, name }));
+
+const ELK_EFFECTS = [
+  [0x87, 'Rot/Grün/Blau springen'], [0x88, 'Sieben Farben springen'], [0x89, 'Rot/Grün/Blau überblenden'],
+  [0x8a, 'Sieben Farben überblenden'], [0x8b, 'Rot pulsieren'], [0x8c, 'Grün pulsieren'], [0x8d, 'Blau pulsieren'],
+  [0x8e, 'Gelb pulsieren'], [0x8f, 'Cyan pulsieren'], [0x90, 'Magenta pulsieren'], [0x91, 'Weiß pulsieren'],
+  [0x92, 'Rot/Grün überblenden'], [0x93, 'Rot/Blau überblenden'], [0x94, 'Grün/Blau überblenden'],
+  [0x95, 'Sieben Farben blinken'], [0x96, 'Rot blinken'], [0x97, 'Grün blinken'], [0x98, 'Blau blinken'],
+  [0x99, 'Gelb blinken'], [0x9a, 'Cyan blinken'], [0x9b, 'Magenta blinken'], [0x9c, 'Weiß blinken'],
+].map(([id, name]) => ({ id, name }));
+
+/** Triones / LEDBLE / Zengge / HappyLighting. Keine native Helligkeit. */
+const triones = {
+  ...BASE,
+  id: 'triones', name: 'Triones / HappyLighting',
+  prefixes: ['Triones', 'LEDBLE', 'LEDnet', 'Zengge', 'HappyLighting'],
+  services: [u16('ffe5'), u16('ffd5')], write: [u16('ffe9'), u16('ffd9')],
+  white: true, speed: true, effects: TRIONES_EFFECTS,
+  power(on) { return [[0xcc, on ? 0x23 : 0x24, 0x33]]; },
+  color(c) { return [[0x56, c.r, c.g, c.b, 0x00, 0xf0, 0xaa]]; },
+  whiteCmd(p) { return [[0x56, 0, 0, 0, pctToByte(p), 0x0f, 0xaa]]; },
+  // BB <Effekt> <Tempo> 44, Tempo 0x01 schnell ... 0x1F langsam
+  effect(id, speedPct) { return [[0xbb, id & 255, 31 - Math.round(clamp(speedPct, 0, 100) / 100 * 30), 0x44]]; },
+  effectSpeed(p, effectId) { return effectId == null ? [] : this.effect(effectId, p); },
+};
+
+/** ELK-BLEDOM-Familie: 9-Byte-Rahmen 7E .. EF (Bytes nach dave-code-ruiz/elkbledom). */
+function elk(cfg) {
+  return {
+    ...BASE,
+    on: [0x7e, 0x00, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef],
+    off: [0x7e, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef],
+    colorLen: 0x00, swapGB: false, brightTail: [0xff, 0x00, 0xff, 0x00],
+    effLen: 0x00, effTail: [0x03, 0x00, 0x00, 0x00], spdLen: 0x00, spdTail: [0, 0, 0, 0], init: [],
+    nativeBrightness: true, speed: true, effects: ELK_EFFECTS,
+    handshake() { return this.init; },
+    power(on) { return [on ? this.on : this.off]; },
+    color(c) {
+      const [second, third] = this.swapGB ? [c.b, c.g] : [c.g, c.b];
+      return [[0x7e, this.colorLen, 0x05, 0x03, c.r, second, third, 0x00, 0xef]];
+    },
+    brightness(p) { return [[0x7e, 0x04, 0x01, clamp(Math.round(p), 0, 100), ...this.brightTail, 0xef]]; },
+    effect(id) { return [[0x7e, this.effLen, 0x03, id & 255, ...this.effTail, 0xef]]; },
+    effectSpeed(p) { return [[0x7e, this.spdLen, 0x02, clamp(Math.round(p), 0, 100), ...this.spdTail, 0xef]]; },
+    ...cfg,
+  };
+}
+
+const elkBledom = elk({
+  id: 'elk-bledom', name: 'ELK-BLEDOM',
+  prefixes: ['ELK-BLEDOM', 'ELK-BLE', 'ELK-', 'BLEDOM', 'QHM-'],
+  services: [u16('fff0')], write: [u16('fff3')],
+});
+const elkMelk = elk({
+  id: 'elk-melk', name: 'MELK', prefixes: ['MELK'],
+  services: [u16('fff0')], write: [u16('fff3')],
+  on: [0x7e, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0xef],
+  effLen: 0x05, effTail: [0x06, 0xff, 0xff, 0x00], spdLen: 0x04, spdTail: [0xff, 0xff, 0xff, 0x00],
+  init: [[0x7e, 0x07, 0x83], [0x7e, 0x04, 0x04]],
+});
+const elkLedble = elk({
+  id: 'elk-ffe1', name: 'ELK (LEDBLE, FFE1)', prefixes: ['LEDBLE'],
+  services: [u16('ffe0')], write: [u16('ffe1')],
+  on: [0x7e, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0xef],
+});
+const elkLedDash = elk({
+  id: 'elk-led', name: 'ELK (LED-, FFE1)', prefixes: ['LED-'],
+  services: [u16('ffe0')], write: [u16('ffe1')],
+  on: [0x7e, 0x04, 0x04, 0x01, 0xff, 0xff, 0xff, 0x00, 0xef],
+  off: [0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0xef],
+  colorLen: 0x07, swapGB: true, brightTail: [0xff, 0xff, 0xff, 0x00],
+  effLen: 0x05, effTail: [0x03, 0xff, 0xff, 0x00],
+});
+
+/** SP110E / SP105E / SP107E: 4 Bytes, Befehlsbyte am Ende. */
+const sp110e = {
+  ...BASE,
+  id: 'sp110e', name: 'SP110E Pixel-Controller',
+  prefixes: ['SP110E', 'SP105E', 'SP107E', 'SP108E'],
+  services: [u16('ffe0')], write: [u16('ffe1')], notify: [u16('ffe2')],
+  nativeBrightness: true, white: true, speed: true,
+  effects: Array.from({ length: 120 }, (_, i) => ({ id: i + 1, name: `Muster ${i + 1}` })),
+  handshake() { return [[0x01, 0xb7, 0xe3, 0xd5]]; },
+  power(on) { return [[0, 0, 0, on ? 0xaa : 0xab]]; },
+  color(c) { return [[c.r, c.g, c.b, 0x1e]]; },
+  staticMode() { return [[121, 0, 0, 0x2c]]; },
+  brightness(p) { return [[pctToByte(p, 255, 1), 0, 0, 0x2a]]; },
+  whiteCmd(p) { return [[pctToByte(p), 0, 0, 0x69]]; },
+  effect(id) { return [[clamp(id, 1, 120), 0, 0, 0x2c]]; },
+  effectSpeed(p) { return [[pctToByte(p), 0, 0, 0x03]]; },
+};
+
+/** Govee (experimentell): 20 Bytes, letztes Byte = XOR aller anderen. */
+function goveePacket(payload) {
+  const bytes = payload.concat(new Array(Math.max(0, 19 - payload.length)).fill(0));
+  bytes.push(bytes.reduce((a, b) => a ^ b, 0));
+  return bytes;
+}
+function govee(id, name, sub) {
+  return {
+    ...BASE,
+    id, name, prefixes: ['ihoment', 'Govee', 'GBK', 'Minger'],
+    services: ['00010203-0405-0607-0809-0a0b0c0d1910'], write: ['00010203-0405-0607-0809-0a0b0c0d2b11'],
+    experimental: true,
+    keepAlive: { interval: 2000, packet: goveePacket([0xaa, 0x01]) },
+    power(on) { return [goveePacket([0x33, 0x01, on ? 1 : 0])]; },
+    color(c) { return [goveePacket([0x33, 0x05, sub, c.r, c.g, c.b])]; },
+  };
+}
+
+const PROFILES = [
+  triones, elkBledom, elkMelk, elkLedble, elkLedDash, sp110e,
+  govee('govee-classic', 'Govee (klassisch)', 0x02),
+  govee('govee-0d', 'Govee (neuere Modelle)', 0x0d),
+];
+
+const profileById = (id) => PROFILES.find((p) => p.id === id) || null;
+const matchLen = (p, name) => Math.max(0, ...p.prefixes.filter((x) => name.toLowerCase().startsWith(x.toLowerCase())).map((x) => x.length));
+
+/** Erkennung nach Name: längster passender Namensanfang gewinnt. */
+function matchByName(name) {
+  if (!name) return null;
+  let best = null, bestLen = 0;
+  for (const p of PROFILES) {
+    const len = matchLen(p, name);
+    if (len > bestLen) { best = p; bestLen = len; }
+  }
+  return best;
+}
+
+/** Profile, deren Write-Characteristic am Gerät existiert; Namens-Treffer zuerst. */
+function candidatesFor(charUuids, name) {
+  const usable = PROFILES.filter((p) => p.write.some((u) => charUuids.has(u)));
+  if (!name) return usable;
+  return [...usable.filter((p) => matchLen(p, name) > 0), ...usable.filter((p) => matchLen(p, name) === 0)];
+}
+
+/* ============================== Speicher (nur lokal) ============================== */
+
+const store = {
+  read(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  },
+  write(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* privater Modus */ } },
+};
+let savedLamps = store.read('lamps.v1', {});       // id -> {id,name,profileId,color,brightness}
+let favorites = store.read('favorites.v1', new Array(8).fill(null));
+if (!Array.isArray(favorites) || favorites.length !== 8) favorites = new Array(8).fill(null);
+let extraServices = store.read('extraServices.v1', []);
+
+const KNOWN_SERVICES = [...new Set(PROFILES.flatMap((p) => p.services))];
+const STANDARD_SERVICE = /^000018[0-9a-f]{2}-0000-1000-8000-00805f9b34fb$/;
+
+function optionalServices() {
+  return [...new Set([...KNOWN_SERVICES, u16('180a'), u16('180f'), ...extraServices])];
+}
+
+/* ============================== Drossel ============================== */
+
+/** Höchstens ein Befehl je Schlüssel pro Intervall; der letzte Wert gewinnt. */
+class Throttler {
+  constructor(interval = 100) { this.interval = interval; this.last = {}; this.pending = {}; this.timers = {}; }
+  submit(key, action) {
+    const now = Date.now(), elapsed = now - (this.last[key] || 0);
+    if (elapsed >= this.interval && !this.timers[key]) { this.last[key] = now; action(); return; }
+    this.pending[key] = action;
+    if (this.timers[key]) return;
+    this.timers[key] = setTimeout(() => {
+      delete this.timers[key];
+      const a = this.pending[key];
+      delete this.pending[key];
+      if (a) { this.last[key] = Date.now(); a(); }
+    }, Math.max(10, this.interval - elapsed));
+  }
+  cancel() { this.pending = {}; }
+}
+
+/* ============================== Lampe ============================== */
+
+class Lamp {
+  constructor(device) {
+    this.device = device;
+    this.id = device.id;
+    this.name = device.name || 'Unbenannt';
+    this.state = 'disconnected';          // disconnected | connecting | connected | reconnecting
+    this.wants = false;
+    this.profile = matchByName(device.name);
+    this.services = [];                   // [{uuid, chars:[BluetoothRemoteGATTCharacteristic]}]
+    this.candidates = [];
+    this.writeChar = null;
+    this.isOn = true;
+    this.color = { r: 255, g: 255, b: 255 };
+    this.brightness = 100;
+    this.white = 100;
+    this.effectId = null;
+    this.speed = 50;
+    this.mode = 'unknown';                // unknown | color | white | effect
+    this.log = [];
+    this.throttle = new Throttler(100);
+    this.queue = Promise.resolve();
+    this.busy = false;
+
+    const saved = savedLamps[this.id];
+    if (saved) {
+      if (!device.name && saved.name) this.name = saved.name;
+      if (saved.color) this.color = saved.color;
+      if (saved.brightness) this.brightness = saved.brightness;
+      const p = profileById(saved.profileId);
+      if (p) this.profile = p;
+    }
+    device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
+  }
+
+  get connected() { return this.state === 'connected'; }
+  get allChars() { return this.services.flatMap((s) => s.chars); }
+
+  addLog(line) {
+    const t = new Date();
+    const stamp = t.toTimeString().slice(0, 8) + '.' + String(t.getMilliseconds()).padStart(3, '0');
+    this.log.push(`${stamp}  ${line}`);
+    if (this.log.length > 300) this.log.splice(0, this.log.length - 300);
+    app.logChanged(this);
+  }
+
+  persist() {
+    savedLamps[this.id] = {
+      id: this.id, name: this.name, profileId: this.profile ? this.profile.id : null,
+      color: this.color, brightness: this.brightness,
+    };
+    store.write('lamps.v1', savedLamps);
+  }
+  persistSoon() { clearTimeout(this.persistTimer); this.persistTimer = setTimeout(() => this.persist(), 1000); }
+
+  /* ----- Verbindung ----- */
+
+  async connect(isRetry = false) {
+    if (this.busy || this.connected) return;
+    this.busy = true;
+    this.wants = true;
+    this.state = isRetry ? 'reconnecting' : 'connecting';
+    this.persist();
+    app.render();
+    try {
+      const server = await this.device.gatt.connect();
+      await this.discover(server);
+      this.resolveProfile();
+      this.state = 'connected';
+      this.busy = false;
+      await this.subscribe();
+      this.startSession();
+      this.persist();
+    } catch (e) {
+      this.busy = false;
+      this.addLog(`Verbindung fehlgeschlagen: ${e.message || e}`);
+      if (this.wants) { this.state = 'reconnecting'; this.scheduleReconnect(3000); }
+      else this.state = 'disconnected';
+    }
+    app.render();
+  }
+
+  disconnect() {
+    this.wants = false;
+    clearTimeout(this.reconnectTimer);
+    this.cleanup();
+    try { if (this.device.gatt.connected) this.device.gatt.disconnect(); } catch { /* egal */ }
+    this.state = 'disconnected';
+    app.render();
+  }
+
+  onDisconnected() {
+    this.cleanup();
+    if (this.wants) {
+      this.addLog('Verbindung verloren, verbinde neu …');
+      this.state = 'reconnecting';
+      this.scheduleReconnect(500);
+    } else {
+      this.state = 'disconnected';
+    }
+    app.render();
+  }
+
+  scheduleReconnect(delay) {
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => { if (this.wants) this.connect(true); }, delay);
+  }
+
+  cleanup() {
+    clearInterval(this.keepAliveTimer);
+    this.keepAliveTimer = null;
+    this.throttle.cancel();
+    this.queue = Promise.resolve();
+    this.writeChar = null;
+    this.services = [];
+    this.mode = 'unknown';
+    this.busy = false;
+  }
+
+  async discover(server) {
+    const services = await server.getPrimaryServices();
+    this.services = [];
+    for (const service of services) {
+      let chars = [];
+      try { chars = await service.getCharacteristics(); } catch { /* Dienst ohne Characteristics */ }
+      this.services.push({ uuid: service.uuid, chars });
+    }
+  }
+
+  findWriteChar(profile) {
+    return this.allChars.find((c) => profile.write.includes(c.uuid)
+      && (c.properties.write || c.properties.writeWithoutResponse)) || null;
+  }
+
+  /** Profil gegen die echte GATT-Tabelle prüfen. */
+  resolveProfile() {
+    const uuids = new Set(this.allChars.map((c) => c.uuid));
+    const named = this.name !== 'Unbenannt' ? this.name : null;
+    this.candidates = candidatesFor(uuids, named);
+    if (this.profile && this.findWriteChar(this.profile)) {
+      this.writeChar = this.findWriteChar(this.profile);
+      return;
+    }
+    // Namens-Profil passt nicht zu den Characteristics (z. B. "LEDBLE" als ELK-Variante):
+    // Profil nehmen, bei dem Name und UUID passen; sonst das einzige mit passender UUID.
+    const byName = named ? this.candidates.filter((p) => matchLen(p, named) > 0) : [];
+    const match = byName[0] || (this.candidates.length === 1 ? this.candidates[0] : null);
+    if (match) this.addLog(`Profil per GATT bestimmt: ${match.name}`);
+    else if (this.profile) this.addLog(`Profil ${this.profile.name} passt nicht zu den Characteristics`);
+    this.profile = match;
+    this.writeChar = match ? this.findWriteChar(match) : null;
+  }
+
+  assignProfile(profile) {
+    this.profile = profile;
+    this.mode = 'unknown';
+    this.effectId = null;
+    this.writeChar = profile ? this.findWriteChar(profile) : null;
+    if (this.connected) this.startSession();
+    this.persist();
+    app.render();
+  }
+
+  /** Notifications in Hersteller-Diensten einschalten (Handshake und Debug-Log). */
+  async subscribe() {
+    for (const service of this.services) {
+      if (STANDARD_SERVICE.test(service.uuid)) continue;
+      for (const c of service.chars) {
+        if (!c.properties.notify && !c.properties.indicate) continue;
+        try {
+          await c.startNotifications();
+          c.addEventListener('characteristicvaluechanged', (e) => {
+            const v = e.target.value;
+            this.addLog(`← ${shortUuid(c.uuid)}: ${toHex(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))}`);
+          });
+        } catch (e) { this.addLog(`Notify ${shortUuid(c.uuid)} nicht möglich: ${e.message || e}`); }
+      }
+    }
+  }
+
+  startSession() {
+    clearInterval(this.keepAliveTimer);
+    this.keepAliveTimer = null;
+    if (!this.connected || !this.profile) return;
+    this.send(this.profile.handshake());
+    const ka = this.profile.keepAlive;
+    if (ka) this.keepAliveTimer = setInterval(() => this.send([ka.packet]), ka.interval);
+  }
+
+  /* ----- Schreiben (nacheinander, Web Bluetooth erlaubt keine parallelen Schreibvorgänge) ----- */
+
+  writeRaw(char, bytes) {
+    const data = Uint8Array.from(bytes);
+    this.queue = this.queue.then(async () => {
+      if (!this.connected) return;
+      if (char.properties.writeWithoutResponse && char.writeValueWithoutResponse) await char.writeValueWithoutResponse(data);
+      else if (char.writeValueWithResponse) await char.writeValueWithResponse(data);
+      else await char.writeValue(data);
+      this.addLog(`→ ${shortUuid(char.uuid)}: ${toHex(data)}`);
+    }).catch((e) => this.addLog(`Schreibfehler ${shortUuid(char.uuid)}: ${e.message || e}`));
+    return this.queue;
+  }
+
+  send(packets, profile = null) {
+    const char = profile ? this.findWriteChar(profile) : this.writeChar;
+    if (!char) return;
+    for (const p of packets) this.writeRaw(char, p);
+  }
+
+  /* ----- Steuerung ----- */
+
+  setPower(on) {
+    this.isOn = on;
+    if (this.profile) this.send(this.profile.power(on));
+  }
+  setColor(rgb) {
+    this.color = rgb;
+    this.throttle.submit('light', () => this.sendColor());
+    this.persistSoon();
+  }
+  setBrightness(p) {
+    this.brightness = clamp(Math.round(p), 1, 100);
+    this.throttle.submit('brightness', () => this.sendBrightness());
+    this.persistSoon();
+  }
+  setWhite(p) {
+    this.white = clamp(Math.round(p), 0, 100);
+    this.throttle.submit('light', () => this.sendWhite());
+  }
+  setEffect(id) {
+    if (!this.profile) return;
+    this.effectId = id;
+    this.mode = 'effect';
+    this.send(this.profile.effect(id, this.speed));
+  }
+  setSpeed(p) {
+    this.speed = clamp(Math.round(p), 0, 100);
+    this.throttle.submit('speed', () => { if (this.profile) this.send(this.profile.effectSpeed(this.speed, this.effectId)); });
+  }
+  applyFavorite(fav) {
+    this.color = fav.color;
+    this.brightness = clamp(fav.brightness, 1, 100);
+    if (!this.profile) return;
+    if (this.profile.nativeBrightness) this.sendBrightness();
+    this.sendColor();
+    this.persistSoon();
+  }
+
+  sendColor() {
+    const p = this.profile;
+    if (!p) return;
+    const packets = this.mode !== 'color' ? [...p.staticMode()] : [];
+    this.mode = 'color';
+    this.effectId = null;
+    packets.push(...p.color(p.nativeBrightness ? this.color : scaleRgb(this.color, this.brightness)));
+    this.send(packets);
+  }
+  sendWhite() {
+    const p = this.profile;
+    if (!p || !p.white) return;
+    this.mode = 'white';
+    this.effectId = null;
+    this.send(p.whiteCmd(p.nativeBrightness ? this.white : Math.max(1, Math.round(this.white * this.brightness / 100))));
+  }
+  sendBrightness() {
+    const p = this.profile;
+    if (!p) return;
+    if (p.nativeBrightness) { this.send(p.brightness(this.brightness)); return; }
+    // Kein eigener Helligkeitsbefehl: über die Kanalwerte nachbilden.
+    if (this.mode === 'white') this.sendWhite();
+    else if (this.mode !== 'effect') this.sendColor();
+  }
+}
+
+/* ============================== Oberfläche ============================== */
+
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k in el) el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+
+const STATE_LABEL = { disconnected: 'Getrennt', connecting: 'Verbinde …', connected: 'Verbunden', reconnecting: 'Verbinde neu …' };
+const stateClass = (s) => (s === 'connected' ? 'connected' : s === 'disconnected' ? 'off' : 'busy');
+const POWER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>';
+
+const app = {
+  lamps: [],
+  view: { name: 'home' },
+  probe: null,                 // {lamp, index, run, sending}
+  debug: { lampId: null, char: null, hex: '', error: '' },
+  versionTaps: 0,
+  renderQueued: false,
+
+  get supported() { return !!(navigator.bluetooth && navigator.bluetooth.requestDevice); },
+  get connectedLamps() { return this.lamps.filter((l) => l.connected); },
+  lampById(id) { return this.lamps.find((l) => l.id === id) || null; },
+
+  go(view) { this.view = view; window.scrollTo(0, 0); this.render(); },
+
+  render() {
+    if (this.renderQueued) return;
+    this.renderQueued = true;
+    requestAnimationFrame(() => { this.renderQueued = false; this.renderNow(); });
+  },
+
+  renderNow() {
+    const root = document.getElementById('app');
+    const views = { home: viewHome, lamp: viewLamp, group: viewGroup, settings: viewSettings, debug: viewDebug };
+    root.replaceChildren(...[].concat((views[this.view.name] || viewHome)()).filter(Boolean));
+    if (this.probe) root.append(viewProbe());
+  },
+
+  logChanged(lamp) {
+    const el = document.getElementById('log');
+    if (el && this.view.name === 'debug' && this.debugLamp() === lamp) el.textContent = lamp.log.slice().reverse().join('\n');
+  },
+
+  debugLamp() { return this.lampById(this.debug.lampId) || this.connectedLamps[0] || null; },
+
+  addDevice(device) {
+    let lamp = this.lampById(device.id);
+    if (!lamp) { lamp = new Lamp(device); this.lamps.push(lamp); }
+    return lamp;
+  },
+
+  /** Öffnet die Geräteauswahl. filtered = nur Geräte, die nach LED-Lampe aussehen. */
+  async search(filtered, exactName = null) {
+    if (!this.supported) return;
+    const options = { optionalServices: optionalServices() };
+    if (exactName) options.filters = [{ name: exactName }];
+    else if (filtered) {
+      const prefixes = [...new Set(PROFILES.flatMap((p) => p.prefixes))];
+      options.filters = [...prefixes.map((namePrefix) => ({ namePrefix })), ...KNOWN_SERVICES.map((s) => ({ services: [s] }))];
+    } else options.acceptAllDevices = true;
+    try {
+      const device = await navigator.bluetooth.requestDevice(options);
+      const lamp = this.addDevice(device);
+      lamp.connect();
+      this.go({ name: 'lamp', id: lamp.id });
+    } catch (e) {
+      if (e && e.name !== 'NotFoundError' && e.name !== 'AbortError') alert(`Suche fehlgeschlagen: ${e.message || e}`);
+    }
+  },
+
+  forget(id) {
+    const lamp = this.lampById(id);
+    if (lamp) { lamp.disconnect(); this.lamps = this.lamps.filter((l) => l !== lamp); }
+    delete savedLamps[id];
+    store.write('lamps.v1', savedLamps);
+    this.render();
+  },
+
+  /** Beim Start: bereits freigegebene Geräte holen und automatisch verbinden (falls der Browser das kann). */
+  async restore() {
+    if (!this.supported || !navigator.bluetooth.getDevices) return;
+    try {
+      for (const device of await navigator.bluetooth.getDevices()) {
+        if (savedLamps[device.id]) this.addDevice(device).connect(true);
+      }
+    } catch { /* nicht unterstützt */ }
+    this.render();
+  },
+};
+
+function header(title, back, ...actions) {
+  return h('header', null,
+    back && h('button', { class: 'icon', onclick: () => app.go(back), 'aria-label': 'Zurück' }, '‹'),
+    h('h1', null, title), actions);
+}
+
+function profileBadge(lamp) {
+  return lamp.profile
+    ? [h('span', { class: 'badge' }, lamp.profile.name), lamp.profile.experimental && h('span', { class: 'badge exp' }, 'experimentell')]
+    : h('span', { class: 'badge unknown' }, 'Unbekannt');
+}
+
+/* ----- Startseite ----- */
+
+function viewHome() {
+  const out = [header('LED Erkennung', null,
+    h('button', { class: 'icon', onclick: () => app.go({ name: 'settings' }), 'aria-label': 'Einstellungen' }, '⚙'))];
+
+  if (!app.supported) {
+    out.push(h('div', { class: 'banner' },
+      h('b', null, 'Dieser Browser kann kein Bluetooth.'), h('br'),
+      'Auf dem iPhone: Installiere die kostenlose App „Bluefy“ aus dem App Store und öffne diese Seite dort. ',
+      'Auf Android und am PC funktioniert Chrome.'));
+  }
+
+  out.push(h('button', { class: 'primary block', disabled: !app.supported, onclick: () => app.search(true) }, 'Lampen suchen'));
+  out.push(h('button', { class: 'block', disabled: !app.supported, onclick: () => app.search(false) }, 'Alle Bluetooth-Geräte anzeigen'));
+  out.push(h('p', { class: 'muted small' },
+    '„Lampen suchen“ zeigt nur Geräte, die nach LED-Lampe aussehen. Taucht deine Lampe dort nicht auf, nimm „Alle Bluetooth-Geräte“. ',
+    'Für jede weitere Lampe einfach noch einmal suchen.'));
+
+  const controllable = app.connectedLamps.filter((l) => l.profile);
+  if (controllable.length >= 2) {
+    out.push(h('button', { class: 'block', onclick: () => app.go({ name: 'group' }) }, `Alle ${controllable.length} Lampen synchron steuern`));
+  }
+
+  if (app.lamps.length) {
+    out.push(h('h2', null, 'Meine Lampen'));
+    for (const lamp of app.lamps) {
+      out.push(h('div', { class: 'row', onclick: () => app.go({ name: 'lamp', id: lamp.id }) },
+        h('div', { class: 'dot', style: `background:${lamp.connected && lamp.profile ? rgbCss(lamp.color) : '#444'}` }),
+        h('div', { class: 'grow' },
+          h('div', { class: 'name' }, lamp.name),
+          h('div', null, profileBadge(lamp), ' ', h('span', { class: `state ${stateClass(lamp.state)}` }, STATE_LABEL[lamp.state]))),
+        h('span', { class: 'muted' }, '›')));
+    }
+  }
+
+  const sleeping = Object.values(savedLamps).filter((s) => !app.lampById(s.id));
+  if (sleeping.length) {
+    out.push(h('h2', null, 'Gespeichert'));
+    for (const s of sleeping) {
+      const profile = profileById(s.profileId);
+      out.push(h('div', { class: 'row', onclick: () => app.search(true, s.name) },
+        h('div', { class: 'dot', style: 'background:#333' }),
+        h('div', { class: 'grow' },
+          h('div', { class: 'name' }, s.name),
+          h('div', { class: 'muted small' }, `${profile ? profile.name : 'Unbekannt'} · tippen zum Verbinden`))));
+    }
+  }
+  return out;
+}
+
+/* ----- Regler (für Einzel- und Gruppensteuerung) ----- */
+
+function controls(lamp, targets, extras) {
+  const each = (fn) => targets.forEach(fn);
+  let { h: hue, s: sat } = rgbToHueSat(lamp.color);
+
+  const power = h('button', {
+    class: 'power', 'aria-label': lamp.isOn ? 'Ausschalten' : 'Einschalten',
+    style: `background:${lamp.isOn ? rgbCss(lamp.color) : '#2a2d33'};color:${lamp.isOn ? '#111' : '#fff'}`,
+    innerHTML: `${POWER_SVG}<span>${lamp.isOn ? 'An' : 'Aus'}</span>`,
+    onclick: () => { const on = !lamp.isOn; each((t) => t.setPower(on)); app.render(); },
+  });
+
+  const thumb = h('div', { class: 'thumb' });
+  const swatch = h('div', { class: 'swatch' });
+  const hexInput = h('input', { type: 'text', maxLength: 7, autocapitalize: 'characters', autocomplete: 'off', spellcheck: false, placeholder: 'FF8800' });
+
+  const paint = () => {
+    const a = hue * 2 * Math.PI;
+    thumb.style.left = `${50 + Math.cos(a) * sat * 50}%`;
+    thumb.style.top = `${50 + Math.sin(a) * sat * 50}%`;
+    const css = rgbCss(lamp.color);
+    thumb.style.background = css;
+    swatch.style.background = css;
+    if (lamp.isOn) power.style.background = css;
+  };
+
+  const wheel = h('div', { class: 'wheel' }, thumb);
+  const pick = (e) => {
+    const r = wheel.getBoundingClientRect(), radius = r.width / 2;
+    const dx = e.clientX - r.left - radius, dy = e.clientY - r.top - radius;
+    let angle = Math.atan2(dy, dx);
+    if (angle < 0) angle += 2 * Math.PI;
+    hue = angle / (2 * Math.PI);
+    sat = Math.min(Math.hypot(dx, dy), radius) / radius;
+    const rgb = hsvToRgb(hue, sat);
+    each((t) => t.setColor(rgb));
+    hexInput.value = rgbHex(rgb);
+    hexInput.classList.remove('invalid');
+    paint();
+  };
+  let dragging = false;
+  wheel.addEventListener('pointerdown', (e) => { dragging = true; try { wheel.setPointerCapture(e.pointerId); } catch { /* egal */ } pick(e); e.preventDefault(); });
+  wheel.addEventListener('pointermove', (e) => { if (dragging) pick(e); });
+  for (const type of ['pointerup', 'pointercancel']) wheel.addEventListener(type, () => { dragging = false; });
+
+  const applyHex = () => {
+    const rgb = parseHexColor(hexInput.value);
+    if (!rgb) { hexInput.classList.add('invalid'); return; }
+    hexInput.classList.remove('invalid');
+    hexInput.blur();
+    ({ h: hue, s: sat } = rgbToHueSat(rgb));
+    each((t) => t.setColor(rgb));
+    paint();
+  };
+  hexInput.value = rgbHex(lamp.color);
+  hexInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyHex(); });
+
+  const slider = (label, value, min, max, onInput, disabled) => {
+    const out = h('span', null, `${value} %`);
+    return h('div', { class: 'slider' },
+      h('div', { class: 'head' }, h('span', null, label), out),
+      h('input', { type: 'range', min, max, step: 1, value, disabled, oninput: (e) => { const v = Number(e.target.value); out.textContent = `${v} %`; onInput(v); } }));
+  };
+
+  const favs = h('div', { class: 'favs' }, favorites.map((fav, index) => {
+    const el = h('div', {
+      class: `fav ${fav ? 'set' : 'empty'}`,
+      style: fav ? `background:${rgbCss(fav.color)};opacity:${0.4 + 0.6 * fav.brightness / 100}` : '',
+    }, fav ? `${fav.brightness} %` : '+');
+    let timer = null, longFired = false;
+    el.addEventListener('pointerdown', () => {
+      longFired = false;
+      timer = setTimeout(() => {
+        longFired = true;
+        favorites[index] = { color: { ...lamp.color }, brightness: lamp.brightness };
+        store.write('favorites.v1', favorites);
+        if (navigator.vibrate) navigator.vibrate(30);
+        app.render();
+      }, 500);
+    });
+    el.addEventListener('pointerup', () => {
+      clearTimeout(timer);
+      if (!longFired && fav) { each((t) => t.applyFavorite(fav)); app.render(); }
+    });
+    for (const type of ['pointerleave', 'pointercancel']) el.addEventListener(type, () => clearTimeout(timer));
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+    return el;
+  }));
+
+  const out = [
+    h('div', { class: 'center' }, power),
+    wheel,
+    h('div', { class: 'hexrow' }, swatch, h('span', { class: 'muted mono', style: 'font-size:18px' }, '#'), hexInput, h('button', { onclick: applyHex }, 'Setzen')),
+    slider('Helligkeit', lamp.brightness, 1, 100, (v) => each((t) => t.setBrightness(v))),
+    h('h2', null, 'Favoriten'), favs,
+    h('p', { class: 'muted small' }, 'Tippen: anwenden · Lange drücken: aktuelle Farbe und Helligkeit speichern'),
+  ];
+
+  const p = lamp.profile;
+  if (extras && p) {
+    if (p.white) out.push(slider('Weiß', lamp.white, 0, 100, (v) => lamp.setWhite(v)));
+    if (p.effects.length) {
+      out.push(h('h2', null, 'Effekte'));
+      out.push(h('select', {
+        onchange: (e) => {
+          if (e.target.value === '') lamp.setColor(lamp.color); else lamp.setEffect(Number(e.target.value));
+          lamp.effectId = e.target.value === '' ? null : Number(e.target.value);
+          app.render();
+        },
+      }, h('option', { value: '', selected: lamp.effectId == null }, 'Kein Effekt'),
+      p.effects.map((fx) => h('option', { value: String(fx.id), selected: lamp.effectId === fx.id }, fx.name))));
+      if (p.speed) out.push(slider('Tempo', lamp.speed, 0, 100, (v) => lamp.setSpeed(v), lamp.effectId == null));
+    }
+  }
+  paint();
+  return out;
+}
+
+/* ----- Einzelne Lampe ----- */
+
+function viewLamp() {
+  const lamp = app.lampById(app.view.id);
+  if (!lamp) { app.view = { name: 'home' }; return viewHome(); }
+
+  const status = h('div', { class: 'card' },
+    h('div', { class: 'kv' }, h('b', { class: `state ${stateClass(lamp.state)}` }, `● ${STATE_LABEL[lamp.state]}`), h('span', null, profileBadge(lamp))),
+    lamp.state === 'reconnecting' && h('p', { class: 'muted small' }, 'Die Verbindung ist abgebrochen. Die App verbindet automatisch neu, solange diese Seite offen ist.'),
+    h('div', { class: 'two' },
+      lamp.wants
+        ? h('button', { onclick: () => lamp.disconnect() }, 'Trennen')
+        : h('button', { class: 'primary', onclick: () => lamp.connect() }, 'Verbinden'),
+      h('button', { class: 'danger', onclick: () => { if (confirm(`„${lamp.name}“ vergessen?`)) { app.forget(lamp.id); app.go({ name: 'home' }); } } }, 'Vergessen')));
+
+  const out = [header(lamp.name, { name: 'home' }), status];
+
+  if (lamp.connected) {
+    if (!lamp.profile) {
+      out.push(h('div', { class: 'card' },
+        h('b', null, 'Protokoll unbekannt'),
+        lamp.candidates.length
+          ? [h('p', { class: 'muted' }, `Die App kann ${lamp.candidates.length} passende Protokolle nacheinander testen. Du sagst jeweils, ob die Lampe reagiert hat.`),
+            h('button', { class: 'primary block', onclick: () => startProbe(lamp) }, 'Protokoll durchprobieren')]
+          : h('p', { class: 'muted' }, 'Dieses Gerät hat keine der bekannten LED-Characteristics (FFE9, FFD9, FFF3, FFE1, Govee). Vermutlich ist es keine unterstützte Lampe. Im Entwickler-Screen (Einstellungen, 5× auf die Versionsnummer tippen) kannst du die Dienste ansehen und Bytes von Hand senden.')));
+    } else {
+      out.push(...controls(lamp, [lamp], true));
+    }
+    if (lamp.candidates.length) {
+      out.push(h('h2', null, 'Protokoll'));
+      out.push(h('select', { onchange: (e) => lamp.assignProfile(profileById(e.target.value)) },
+        !lamp.profile && h('option', { value: '', selected: true }, 'Profil manuell wählen …'),
+        lamp.candidates.map((c) => h('option', { value: c.id, selected: lamp.profile === c }, c.name))));
+      if (lamp.profile) out.push(h('button', { class: 'block', onclick: () => startProbe(lamp) }, 'Protokoll durchprobieren'));
+    }
+  }
+  return out;
+}
+
+/* ----- Gruppe ----- */
+
+function viewGroup() {
+  const lamps = app.connectedLamps.filter((l) => l.profile);
+  const out = [header('Alle steuern', { name: 'home' })];
+  if (!lamps.length) {
+    out.push(h('div', { class: 'card muted center' }, 'Keine Lampe verbunden.'));
+    return out;
+  }
+  out.push(h('div', { class: 'card' },
+    h('b', null, `${lamps.length} Lampen synchron`),
+    lamps.map((l) => h('div', { class: 'kv small' }, h('span', null, l.name), h('span', null, l.profile.name)))));
+  out.push(...controls(lamps[0], lamps, false));
+  return out;
+}
+
+/* ----- Protokoll durchprobieren ----- */
+
+function startProbe(lamp) {
+  app.probe = { lamp, index: 0, run: 0, sending: false, candidates: lamp.candidates.slice() };
+  sendProbe();
+  app.render();
+}
+
+function sendProbe() {
+  const pr = app.probe;
+  if (!pr || pr.index >= pr.candidates.length) return;
+  const profile = pr.candidates[pr.index], lamp = pr.lamp;
+  const run = ++pr.run;
+  pr.sending = true;
+  lamp.send(profile.handshake(), profile);
+  lamp.send(profile.power(true), profile);
+  if (profile.nativeBrightness) lamp.send(profile.brightness(100), profile);
+  const colors = [{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }, { r: 255, g: 255, b: 255 }];
+  colors.forEach((color, step) => setTimeout(() => {
+    if (app.probe !== pr || pr.run !== run) return;
+    lamp.send([...(step === 0 ? profile.staticMode() : []), ...profile.color(color)], profile);
+    if (step === colors.length - 1) { pr.sending = false; app.render(); }
+  }, 400 + step * 800));
+}
+
+function viewProbe() {
+  const pr = app.probe;
+  const close = () => { app.probe = null; app.render(); };
+  let body;
+  if (pr.index >= pr.candidates.length) {
+    body = [h('h3', null, 'Kein Profil hat gepasst'),
+      h('p', { class: 'muted' }, `Keines der ${pr.candidates.length} Protokolle hat die Lampe geschaltet. Im Entwickler-Screen kannst du eigene Bytes senden.`),
+      h('div', { class: 'two' },
+        h('button', { onclick: () => { pr.index = 0; sendProbe(); app.render(); } }, 'Von vorn'),
+        h('button', { onclick: close }, 'Schließen'))];
+  } else {
+    const profile = pr.candidates[pr.index];
+    body = [h('div', { class: 'muted small' }, `Test ${pr.index + 1} von ${pr.candidates.length}`),
+      h('h3', null, profile.name),
+      h('p', { class: 'muted' }, 'Die App schaltet die Lampe ein und zeigt nacheinander Rot, Grün, Blau und Weiß.'),
+      pr.sending ? h('p', null, 'Sende Testbefehle …') : h('button', { onclick: () => { sendProbe(); app.render(); } }, 'Testbefehle noch einmal senden'),
+      h('p', null, h('b', null, 'Hat die Lampe reagiert?')),
+      h('div', { class: 'two' },
+        h('button', { onclick: () => { pr.index += 1; pr.sending = false; pr.run += 1; sendProbe(); app.render(); } }, 'Nein'),
+        h('button', { class: 'primary', onclick: () => { pr.lamp.assignProfile(profile); close(); } }, 'Ja')),
+      h('button', { class: 'block', onclick: close }, 'Abbrechen')];
+  }
+  return h('div', { class: 'overlay' }, h('div', { class: 'sheet' }, body));
+}
+
+/* ----- Einstellungen ----- */
+
+function viewSettings() {
+  const out = [header('Einstellungen', { name: 'home' })];
+
+  out.push(h('h2', null, 'Gespeicherte Geräte'));
+  const saved = Object.values(savedLamps).sort((a, b) => a.name.localeCompare(b.name));
+  if (!saved.length) out.push(h('div', { class: 'card muted' }, 'Noch keine Geräte gespeichert.'));
+  for (const s of saved) {
+    const profile = profileById(s.profileId);
+    out.push(h('div', { class: 'row', style: 'cursor:default' },
+      h('div', { class: 'grow' }, h('div', { class: 'name' }, s.name), h('div', { class: 'muted small' }, profile ? profile.name : 'Unbekannt')),
+      h('button', { class: 'danger', onclick: () => app.forget(s.id) }, 'Vergessen')));
+  }
+
+  out.push(h('h2', null, 'Unterstützte Protokolle'));
+  out.push(h('div', { class: 'card' }, PROFILES.map((p) => h('div', { style: 'padding:5px 0' },
+    h('div', null, p.name, p.experimental ? ' (experimentell)' : ''),
+    h('div', { class: 'muted small' }, p.prefixes.join(', '))))));
+
+  out.push(h('h2', null, 'Info'));
+  out.push(h('div', { class: 'card' },
+    h('div', {
+      class: 'kv', onclick: () => {
+        app.versionTaps += 1;
+        if (app.versionTaps >= 5) { app.versionTaps = 0; app.go({ name: 'debug' }); }
+      },
+    }, h('span', null, 'Version'), h('span', null, VERSION)),
+    h('p', { class: 'muted small' }, 'Alles bleibt lokal in diesem Browser: keine Cloud, keine Konten, keine Analyse.')));
+  return out;
+}
+
+/* ----- Entwickler-Screen ----- */
+
+function describeProps(p) {
+  const parts = [];
+  if (p.read) parts.push('read');
+  if (p.write) parts.push('write');
+  if (p.writeWithoutResponse) parts.push('writeNoResponse');
+  if (p.notify) parts.push('notify');
+  if (p.indicate) parts.push('indicate');
+  return parts.join(' · ') || 'keine';
+}
+
+function viewDebug() {
+  const d = app.debug;
+  const out = [header('Entwickler', { name: 'settings' })];
+  const lamps = app.connectedLamps;
+  const lamp = app.debugLamp();
+
+  out.push(h('h2', null, 'Zusätzliche Service-UUIDs'));
+  out.push(h('div', { class: 'card' },
+    h('p', { class: 'muted small' }, 'Der Browser zeigt nur Dienste, die vor dem Verbinden angemeldet wurden. Bekannte LED-Dienste sind immer dabei. Weitere hier eintragen (z. B. FFB0, durch Komma getrennt), dann das Gerät neu suchen.'),
+    h('input', {
+      type: 'text', value: extraServices.map(shortUuid).join(', '), placeholder: 'FFB0, AE00',
+      onchange: (e) => {
+        extraServices = e.target.value.split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)
+          .map((s) => (/^[0-9a-f]{4}$/.test(s) ? u16(s) : s))
+          .filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s));
+        store.write('extraServices.v1', extraServices);
+        app.render();
+      },
+    })));
+
+  if (!lamp) {
+    out.push(h('div', { class: 'card muted' }, 'Kein Gerät verbunden. Verbinde zuerst ein Gerät, auch ein unbekanntes.'));
+    return out;
+  }
+  if (d.char && !lamp.allChars.includes(d.char)) d.char = null;
+
+  out.push(h('h2', null, 'Gerät'));
+  out.push(h('select', { onchange: (e) => { d.lampId = e.target.value; d.char = null; app.render(); } },
+    lamps.map((l) => h('option', { value: l.id, selected: l === lamp }, l.name))));
+  out.push(h('div', { class: 'card small' },
+    h('div', { class: 'kv' }, h('span', null, 'Kennung'), h('span', { class: 'mono' }, lamp.id)),
+    h('div', { class: 'kv' }, h('span', null, 'Profil'), h('span', null, lamp.profile ? lamp.profile.name : 'Unbekannt')),
+    h('div', { class: 'kv' }, h('span', null, 'Passende Profile'), h('span', null, lamp.candidates.map((c) => c.name).join(', ') || 'keine'))));
+
+  out.push(h('h2', null, 'Services und Characteristics'));
+  if (!lamp.services.length) out.push(h('div', { class: 'card muted' }, 'Keine sichtbaren Dienste.'));
+  for (const s of lamp.services) {
+    out.push(h('div', { class: 'card' },
+      h('div', { class: 'mono' }, h('b', null, `Service ${s.uuid}`)),
+      s.chars.length ? s.chars.map((c) => h('div', { class: `char ${d.char === c ? 'sel' : ''}`, onclick: () => { d.char = c; d.error = ''; app.render(); } },
+        h('div', { class: 'mono' }, c.uuid), h('div', { class: 'muted small' }, describeProps(c.properties))))
+        : h('div', { class: 'muted small' }, 'Keine Characteristics')));
+  }
+
+  out.push(h('h2', null, 'Hex-Bytes senden'));
+  const canWrite = d.char && (d.char.properties.write || d.char.properties.writeWithoutResponse);
+  out.push(h('div', { class: 'card' },
+    h('p', { class: 'muted small' }, d.char ? `Ziel: ${d.char.uuid}` : 'Tippe oben eine Characteristic an, um sie als Ziel zu wählen.'),
+    h('input', { type: 'text', value: d.hex, placeholder: '7E 00 04 F0 00 01 FF 00 EF', autocapitalize: 'characters', autocomplete: 'off', spellcheck: false, oninput: (e) => { d.hex = e.target.value; } }),
+    d.error && h('p', { class: 'small', style: 'color:var(--bad)' }, d.error),
+    h('div', { class: 'two' },
+      h('button', {
+        class: 'primary', disabled: !canWrite, onclick: () => {
+          const bytes = parseHexBytes(d.hex);
+          if (!bytes) { d.error = 'Ungültige Eingabe: gerade Anzahl Hex-Ziffern nötig, z. B. CC 23 33.'; app.render(); return; }
+          d.error = '';
+          lamp.writeRaw(d.char, bytes);
+          app.render();
+        },
+      }, 'Senden'),
+      h('button', {
+        disabled: !(d.char && d.char.properties.read), onclick: async () => {
+          try {
+            const v = await d.char.readValue();
+            lamp.addLog(`← ${shortUuid(d.char.uuid)} (gelesen): ${toHex(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))}`);
+          } catch (e) { lamp.addLog(`Lesefehler: ${e.message || e}`); }
+        },
+      }, 'Lesen'))));
+
+  out.push(h('h2', null, 'Log (neueste oben)'));
+  out.push(h('div', { class: 'log mono', id: 'log' }, lamp.log.slice().reverse().join('\n')));
+  out.push(h('button', { class: 'block', onclick: () => { lamp.log = []; app.render(); } }, 'Log leeren'));
+  return out;
+}
+
+/* ============================== Start ============================== */
+
+window.LED = { app, PROFILES, Lamp, matchByName, candidatesFor, parseHexBytes, hsvToRgb, rgbToHueSat, scaleRgb };
+app.renderNow();
+app.restore();
+</script>
+</body>
+</html>
